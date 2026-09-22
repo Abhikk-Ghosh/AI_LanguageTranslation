@@ -1,7 +1,6 @@
 # 🌐 LinguaAI - Language Translation Tool
 
-An AI-powered multilingual language translation web application developed as part of the **CodeAlpha Artificial Intelligence Internship – Task 1**.
-
+An AI-powered multilingual language translation web application
 LinguaAI provides a clean and responsive web interface for translating text between multiple languages using a Flask backend and the MyMemory Translation API.
 
 ---
