@@ -10,7 +10,7 @@ class TranslationService:
     LANGUAGE_NAMES = {
         "en": "English",
         "hi": "Hindi",
-        "bn": "Bengali",
+        "bn": "Bengali (India)",
         "fr": "French",
         "de": "German",
         "es": "Spanish",
@@ -25,7 +25,6 @@ class TranslationService:
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using the Google Gemini API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -41,7 +40,6 @@ class TranslationService:
         if target not in TranslationService.LANGUAGE_NAMES:
             raise ValueError("Unsupported target language.")
 
-        # No API request is required for the same language.
         if source == target:
             return text.strip()
 
@@ -56,17 +54,26 @@ class TranslationService:
         target_language = TranslationService.LANGUAGE_NAMES[target]
 
         prompt = f"""
-Translate the following text from {source_language} to {target_language}.
+You are a professional translation engine.
 
-Important rules:
-1. Return ONLY the translated text.
-2. Do not add explanations.
-3. Do not add quotation marks.
-4. Preserve the original meaning.
-5. Preserve names, numbers, punctuation and formatting whenever appropriate.
-6. Do not translate code, URLs or email addresses unnecessarily.
+Translate the text below from {source_language} to {target_language}.
 
-Text to translate:
+STRICT REQUIREMENTS:
+- Return ONLY the translation.
+- Do not explain the translation.
+- Do not add quotation marks.
+- Do not add labels such as "Translation:".
+- Preserve names, numbers and punctuation.
+- Preserve line breaks when possible.
+- If the target language is Bengali, write the result using Bengali script (বাংলা), not English letters.
+- If the target language is Bengali (India), use natural standard Indian Bengali.
+- Do not transliterate Bengali into English.
+- Translate the meaning accurately and naturally.
+
+Source language: {source_language}
+Target language: {target_language}
+
+Text:
 {text.strip()}
 """
 
@@ -88,6 +95,7 @@ Text to translate:
             return translated_text.strip()
 
         except Exception as error:
+
             print("Gemini Translation Error:", error)
 
             raise RuntimeError(
