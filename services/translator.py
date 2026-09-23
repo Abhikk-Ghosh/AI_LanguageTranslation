@@ -8,23 +8,110 @@ class TranslationService:
     MODEL = "gemini-3.8-flash"
 
     LANGUAGE_NAMES = {
-        "en": "English",
-        "hi": "Hindi",
-        "bn": "Bengali (India)",
-        "fr": "French",
-        "de": "German",
-        "es": "Spanish",
-        "it": "Italian",
-        "pt": "Portuguese",
-        "ru": "Russian",
-        "ja": "Japanese",
-        "ko": "Korean",
+        "af": "Afrikaans",
+        "ak": "Akan",
+        "sq": "Albanian",
+        "am": "Amharic",
         "ar": "Arabic",
-        "zh": "Chinese"
+        "hy": "Armenian",
+        "as": "Assamese",
+        "az": "Azerbaijani",
+        "eu": "Basque",
+        "be": "Belarusian",
+        "bn": "Bengali",
+        "bs": "Bosnian",
+        "bg": "Bulgarian",
+        "my": "Burmese",
+        "ca": "Catalan",
+        "ceb": "Cebuano",
+        "zh-Hans": "Chinese (Simplified)",
+        "zh-Hant": "Chinese (Traditional)",
+        "hr": "Croatian",
+        "cs": "Czech",
+        "da": "Danish",
+        "nl": "Dutch",
+        "en": "English",
+        "et": "Estonian",
+        "fo": "Faroese",
+        "fil": "Filipino",
+        "fi": "Finnish",
+        "fr": "French",
+        "gl": "Galician",
+        "ka": "Georgian",
+        "de": "German",
+        "el": "Greek",
+        "gu": "Gujarati",
+        "ha": "Hausa",
+        "he": "Hebrew",
+        "hi": "Hindi",
+        "hu": "Hungarian",
+        "is": "Icelandic",
+        "id": "Indonesian",
+        "ga": "Irish",
+        "it": "Italian",
+        "ja": "Japanese",
+        "kn": "Kannada",
+        "kk": "Kazakh",
+        "km": "Khmer",
+        "rw": "Kinyarwanda",
+        "ko": "Korean",
+        "ku": "Kurdish",
+        "ky": "Kyrgyz",
+        "lo": "Lao",
+        "lv": "Latvian",
+        "lt": "Lithuanian",
+        "mk": "Macedonian",
+        "ms": "Malay",
+        "ml": "Malayalam",
+        "mt": "Maltese",
+        "mi": "Maori",
+        "mr": "Marathi",
+        "mn": "Mongolian",
+        "ne": "Nepali",
+        "no": "Norwegian",
+        "or": "Odia",
+        "om": "Oromo",
+        "ps": "Pashto",
+        "fa": "Persian",
+        "pl": "Polish",
+        "pt-BR": "Portuguese (Brazil)",
+        "pt-PT": "Portuguese (Portugal)",
+        "pa": "Punjabi",
+        "qu": "Quechua",
+        "ro": "Romanian",
+        "rm": "Romansh",
+        "ru": "Russian",
+        "sr": "Serbian",
+        "sd": "Sindhi",
+        "si": "Sinhala",
+        "sk": "Slovak",
+        "sl": "Slovenian",
+        "so": "Somali",
+        "st": "Southern Sotho",
+        "es": "Spanish",
+        "sw": "Swahili",
+        "sv": "Swedish",
+        "tg": "Tajik",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "th": "Thai",
+        "tn": "Tswana",
+        "tr": "Turkish",
+        "tk": "Turkmen",
+        "uk": "Ukrainian",
+        "ur": "Urdu",
+        "uz": "Uzbek",
+        "vi": "Vietnamese",
+        "cy": "Welsh",
+        "fy": "Western Frisian",
+        "wo": "Wolof",
+        "yo": "Yoruba",
+        "zu": "Zulu"
     }
 
     @staticmethod
     def translate(text, source, target):
+        """Translate text using the Google Gemini API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -35,10 +122,14 @@ class TranslationService:
             )
 
         if source not in TranslationService.LANGUAGE_NAMES:
-            raise ValueError("Unsupported source language.")
+            raise ValueError(
+                f"Unsupported source language: {source}"
+            )
 
         if target not in TranslationService.LANGUAGE_NAMES:
-            raise ValueError("Unsupported target language.")
+            raise ValueError(
+                f"Unsupported target language: {target}"
+            )
 
         if source == target:
             return text.strip()
@@ -54,31 +145,39 @@ class TranslationService:
         target_language = TranslationService.LANGUAGE_NAMES[target]
 
         prompt = f"""
-You are a professional translation engine.
+You are a professional multilingual translation engine.
 
-Translate the text below from {source_language} to {target_language}.
+Translate the following text from {source_language} to {target_language}.
 
-STRICT REQUIREMENTS:
-- Return ONLY the translation.
-- Do not explain the translation.
-- Do not add quotation marks.
-- Do not add labels such as "Translation:".
-- Preserve names, numbers and punctuation.
-- Preserve line breaks when possible.
-- If the target language is Bengali, write the result using Bengali script (বাংলা), not English letters.
-- If the target language is Bengali (India), use natural standard Indian Bengali.
-- Do not transliterate Bengali into English.
-- Translate the meaning accurately and naturally.
+STRICT RULES:
 
-Source language: {source_language}
-Target language: {target_language}
+1. Return ONLY the translated text.
+2. Do not provide explanations.
+3. Do not add quotation marks.
+4. Do not add labels such as "Translation:".
+5. Preserve names, numbers and punctuation.
+6. Preserve line breaks whenever possible.
+7. Preserve URLs, email addresses and code when appropriate.
+8. Translate naturally and accurately.
+9. If the target language uses a non-Latin writing system, use its
+   native script.
+10. Do not transliterate the translation into English letters.
+
+Source language:
+{source_language}
+
+Target language:
+{target_language}
 
 Text:
 {text.strip()}
 """
 
         try:
-            client = genai.Client(api_key=api_key)
+
+            client = genai.Client(
+                api_key=api_key
+            )
 
             response = client.models.generate_content(
                 model=TranslationService.MODEL,
@@ -96,7 +195,10 @@ Text:
 
         except Exception as error:
 
-            print("Gemini Translation Error:", error)
+            print(
+                "Gemini Translation Error:",
+                error
+            )
 
             raise RuntimeError(
                 "Translation service is currently unavailable."
