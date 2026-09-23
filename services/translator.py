@@ -1,11 +1,17 @@
 import os
+import time
 
 from google import genai
 
 
 class TranslationService:
 
-    MODEL = "gemini-3.8-flash"
+    # Try lightweight/high-volume model first.
+    MODELS = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash"
+    ]
 
     LANGUAGE_NAMES = {
         "af": "Afrikaans",
@@ -159,8 +165,7 @@ STRICT RULES:
 6. Preserve line breaks whenever possible.
 7. Preserve URLs, email addresses and code when appropriate.
 8. Translate naturally and accurately.
-9. If the target language uses a non-Latin writing system, use its
-   native script.
+9. If the target language uses a non-Latin writing system, use its native script.
 10. Do not transliterate the translation into English letters.
 
 Source language:
@@ -173,33 +178,67 @@ Text:
 {text.strip()}
 """
 
-        try:
+        client = genai.Client(api_key=api_key)
 
-            client = genai.Client(
-                api_key=api_key
-            )
+        last_error = None
 
-            response = client.models.generate_content(
-                model=TranslationService.MODEL,
-                contents=prompt
-            )
+        for model in TranslationService.MODELS:
 
-            translated_text = response.text
+            try:
 
-            if not translated_text:
+                print(
+                    f"Trying Gemini model: {model}"
+                )
+
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+
+                translated_text = response.text
+
+                if translated_text:
+                    print(
+                        f"Translation successful using: {model}"
+                    )
+
+                    return translated_text.strip()
+
                 raise RuntimeError(
                     "Gemini returned an empty translation."
                 )
 
-            return translated_text.strip()
+            except Exception as error:
 
-        except Exception as error:
+                last_error = error
 
-            print(
-                "Gemini Translation Error:",
-                error
-            )
+                error_text = str(error)
 
-            raise RuntimeError(
-                "Translation service is currently unavailable."
-            ) from error
+                print(
+                    f"Gemini model {model} failed: {error_text}"
+                )
+
+                # If this is a temporary service problem,
+                # try the next available model.
+                if (
+                    "503" in error_text
+                    or "UNAVAILABLE" in error_text
+                    or "high demand" in error_text
+                    or "429" in error_text
+                    or "RESOURCE_EXHAUSTED" in error_text
+                ):
+                    time.sleep(1)
+                    continue
+
+                # For other errors, don't hide the real problem.
+                break
+
+        print(
+            "All Gemini translation models failed:",
+            last_error
+        )
+
+        raise RuntimeError(
+            "Translation service is temporarily unavailable. "
+            "Please try again."
+        ) from last_error
