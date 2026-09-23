@@ -1,5 +1,9 @@
 # 🌐 LinguaAI - Language Translation Tool
 
+##  Live Demo
+
+🌐 **Live Application:** https://ai-languagetranslation.onrender.com
+
 An AI-powered multilingual language translation web application
 LinguaAI provides a clean and responsive web interface for translating text between multiple languages using a Flask backend and the MyMemory Translation API.
 
