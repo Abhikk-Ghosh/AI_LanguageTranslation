@@ -1,14 +1,31 @@
 import os
-import requests
+
+from google import genai
 
 
 class TranslationService:
 
-    API_URL = "https://api.mymemory.translated.net/get"
+    MODEL = "gemini-3.8-flash"
+
+    LANGUAGE_NAMES = {
+        "en": "English",
+        "hi": "Hindi",
+        "bn": "Bengali",
+        "fr": "French",
+        "de": "German",
+        "es": "Spanish",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "ru": "Russian",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "ar": "Arabic",
+        "zh": "Chinese"
+    }
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using the MyMemory Translation API."""
+        """Translate text using the Google Gemini API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -18,49 +35,61 @@ class TranslationService:
                 "Source and target languages are required."
             )
 
-        # No API request needed if both languages are the same
+        if source not in TranslationService.LANGUAGE_NAMES:
+            raise ValueError("Unsupported source language.")
+
+        if target not in TranslationService.LANGUAGE_NAMES:
+            raise ValueError("Unsupported target language.")
+
+        # No API request is required for the same language.
         if source == target:
-            return text
+            return text.strip()
 
-        params = {
-            "q": text.strip(),
-            "langpair": f"{source}|{target}",
-            "mt": "1"
-        }
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
 
-        # Use the email configured in Render Environment Variables
-        email = os.getenv("MYMEMORY_EMAIL", "").strip()
-
-        if email:
-            params["de"] = email
-
-        response = requests.get(
-            TranslationService.API_URL,
-            params=params,
-            timeout=15
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        if "responseData" not in data:
+        if not api_key:
             raise RuntimeError(
-                "Invalid response from translation service."
+                "Gemini API key is not configured."
             )
 
-        translated_text = data["responseData"].get(
-            "translatedText"
-        )
+        source_language = TranslationService.LANGUAGE_NAMES[source]
+        target_language = TranslationService.LANGUAGE_NAMES[target]
 
-        if not translated_text:
-            details = data.get("responseDetails")
+        prompt = f"""
+Translate the following text from {source_language} to {target_language}.
 
-            if details:
-                raise RuntimeError(str(details))
+Important rules:
+1. Return ONLY the translated text.
+2. Do not add explanations.
+3. Do not add quotation marks.
+4. Preserve the original meaning.
+5. Preserve names, numbers, punctuation and formatting whenever appropriate.
+6. Do not translate code, URLs or email addresses unnecessarily.
 
-            raise RuntimeError(
-                "Translation service returned no translation."
+Text to translate:
+{text.strip()}
+"""
+
+        try:
+            client = genai.Client(api_key=api_key)
+
+            response = client.models.generate_content(
+                model=TranslationService.MODEL,
+                contents=prompt
             )
 
-        return translated_text.strip()
+            translated_text = response.text
+
+            if not translated_text:
+                raise RuntimeError(
+                    "Gemini returned an empty translation."
+                )
+
+            return translated_text.strip()
+
+        except Exception as error:
+            print("Gemini Translation Error:", error)
+
+            raise RuntimeError(
+                "Translation service is currently unavailable."
+            ) from error
