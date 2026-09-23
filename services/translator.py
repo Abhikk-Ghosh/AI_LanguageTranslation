@@ -1,19 +1,17 @@
+import os
 import requests
-from urllib.parse import quote
 
 
 class TranslationService:
 
-    API_URLS = [
-        "https://translate.plausibility.cloud/api/v1/{source}/{target}/{text}",
-        "https://lingva.garudalinux.org/api/v1/{source}/{target}/{text}",
-        "https://translate.projectsegfau.lt/api/v1/{source}/{target}/{text}",
-        "https://lingva.lunar.icu/api/v1/{source}/{target}/{text}"
-    ]
+    API_URL = (
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
+    )
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using Lingva public API instances."""
+        """Translate text using the Gemini API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -26,70 +24,64 @@ class TranslationService:
         if source == target:
             return text
 
-        encoded_text = quote(text.strip(), safe="")
+        api_key = os.getenv("GEMINI_API_KEY")
 
-        last_error = None
-
-        for api_template in TranslationService.API_URLS:
-
-            api_url = api_template.format(
-                source=source,
-                target=target,
-                text=encoded_text
+        if not api_key:
+            raise RuntimeError(
+                "Gemini API key is not configured."
             )
 
-            try:
-                response = requests.get(
-                    api_url,
-                    headers={
-                        "User-Agent": "LinguaAI/1.0",
-                        "Accept": "application/json"
-                    },
-                    timeout=15
-                )
+        prompt = f"""
+Translate the following text from {source} to {target}.
 
-                response.raise_for_status()
+Return ONLY the translated text.
+Do not add explanations, quotation marks, or labels.
 
-                # Make sure the server actually returned JSON.
-                content_type = response.headers.get(
-                    "Content-Type",
-                    ""
-                ).lower()
+Text:
+{text.strip()}
+"""
 
-                if "json" not in content_type:
-                    last_error = (
-                        f"Non-JSON response from {api_url}"
-                    )
-                    continue
-
-                data = response.json()
-
-                if "error" in data:
-                    last_error = data["error"]
-                    continue
-
-                translated_text = data.get("translation")
-
-                if translated_text:
-                    return translated_text.strip()
-
-                last_error = "No translation returned."
-
-            except requests.RequestException as error:
-
-                last_error = str(error)
-                continue
-
-            except ValueError as error:
-
-                last_error = str(error)
-                continue
-
-        print(
-            "Translation services failed:",
-            last_error
+        response = requests.post(
+            TranslationService.API_URL,
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key
+            },
+            json={
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0
+                }
+            },
+            timeout=30
         )
 
-        raise RuntimeError(
-            "Translation service is currently unavailable."
-        )
+        response.raise_for_status()
+
+        data = response.json()
+
+        try:
+            translated_text = (
+                data["candidates"][0]
+                ["content"]["parts"][0]["text"]
+                .strip()
+            )
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(
+                "Gemini returned an invalid translation response."
+            )
+
+        if not translated_text:
+            raise RuntimeError(
+                "Gemini returned an empty translation."
+            )
+
+        return translated_text
