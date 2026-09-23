@@ -3,11 +3,11 @@ import requests
 
 class TranslationService:
 
-    API_URL = "https://api.mymemory.translated.net/get"
+    API_URL = "https://translate.googleapis.com/translate_a/single"
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using the MyMemory Translation API."""
+        """Translate text using Google Translate's web endpoint."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -21,13 +21,26 @@ class TranslationService:
             return text
 
         params = {
-            "q": text.strip(),
-            "langpair": f"{source}|{target}"
+            "client": "gtx",
+            "sl": source,
+            "tl": target,
+            "dt": "t",
+            "q": text.strip()
+        }
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            )
         }
 
         response = requests.get(
             TranslationService.API_URL,
             params=params,
+            headers=headers,
             timeout=15
         )
 
@@ -35,14 +48,18 @@ class TranslationService:
 
         data = response.json()
 
-        if "responseData" not in data:
+        if not data or not data[0]:
             raise RuntimeError(
-                "Invalid response from translation service."
+                "Translation service returned no translation."
             )
 
-        translated_text = data["responseData"].get(
-            "translatedText"
-        )
+        translated_parts = []
+
+        for item in data[0]:
+            if item and item[0]:
+                translated_parts.append(item[0])
+
+        translated_text = "".join(translated_parts).strip()
 
         if not translated_text:
             raise RuntimeError(
