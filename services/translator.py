@@ -4,14 +4,11 @@ import requests
 
 class TranslationService:
 
-    API_URL = (
-        "https://generativelanguage.googleapis.com/"
-        "v1beta/models/gemini-2.5-flash:generateContent"
-    )
+    API_URL = "https://api.mymemory.translated.net/get"
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using the Gemini API."""
+        """Translate text using the MyMemory Translation API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -21,67 +18,49 @@ class TranslationService:
                 "Source and target languages are required."
             )
 
+        # No API request needed if both languages are the same
         if source == target:
             return text
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        params = {
+            "q": text.strip(),
+            "langpair": f"{source}|{target}",
+            "mt": "1"
+        }
 
-        if not api_key:
-            raise RuntimeError(
-                "Gemini API key is not configured."
-            )
+        # Use the email configured in Render Environment Variables
+        email = os.getenv("MYMEMORY_EMAIL", "").strip()
 
-        prompt = f"""
-Translate the following text from {source} to {target}.
+        if email:
+            params["de"] = email
 
-Return ONLY the translated text.
-Do not add explanations, quotation marks, or labels.
-
-Text:
-{text.strip()}
-"""
-
-        response = requests.post(
+        response = requests.get(
             TranslationService.API_URL,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": api_key
-            },
-            json={
-                "contents": [
-                    {
-                        "parts": [
-                            {
-                                "text": prompt
-                            }
-                        ]
-                    }
-                ],
-                "generationConfig": {
-                    "temperature": 0
-                }
-            },
-            timeout=30
+            params=params,
+            timeout=15
         )
 
         response.raise_for_status()
 
         data = response.json()
 
-        try:
-            translated_text = (
-                data["candidates"][0]
-                ["content"]["parts"][0]["text"]
-                .strip()
-            )
-        except (KeyError, IndexError, TypeError):
+        if "responseData" not in data:
             raise RuntimeError(
-                "Gemini returned an invalid translation response."
+                "Invalid response from translation service."
             )
+
+        translated_text = data["responseData"].get(
+            "translatedText"
+        )
 
         if not translated_text:
+            details = data.get("responseDetails")
+
+            if details:
+                raise RuntimeError(str(details))
+
             raise RuntimeError(
-                "Gemini returned an empty translation."
+                "Translation service returned no translation."
             )
 
-        return translated_text
+        return translated_text.strip()
