@@ -1,18 +1,19 @@
 import requests
+from urllib.parse import quote
 
 
 class TranslationService:
 
     API_URLS = [
-        "https://libretranslate.de/translate",
-        "https://translate.terraprint.co/translate",
-        "https://translate.api.skitzen.com/translate",
-        "https://trans.zillyhuhn.com/translate"
+        "https://translate.plausibility.cloud/api/v1/{source}/{target}/{text}",
+        "https://lingva.garudalinux.org/api/v1/{source}/{target}/{text}",
+        "https://translate.projectsegfau.lt/api/v1/{source}/{target}/{text}",
+        "https://lingva.lunar.icu/api/v1/{source}/{target}/{text}"
     ]
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using LibreTranslate public mirrors."""
+        """Translate text using Lingva public API instances."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -25,46 +26,49 @@ class TranslationService:
         if source == target:
             return text
 
-        payload = {
-            "q": text.strip(),
-            "source": source,
-            "target": target,
-            "format": "text"
-        }
-
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "LinguaAI/1.0"
-        }
+        encoded_text = quote(text.strip(), safe="")
 
         last_error = None
 
-        for api_url in TranslationService.API_URLS:
+        for api_template in TranslationService.API_URLS:
+
+            api_url = api_template.format(
+                source=source,
+                target=target,
+                text=encoded_text
+            )
 
             try:
-
-                response = requests.post(
+                response = requests.get(
                     api_url,
-                    json=payload,
-                    headers=headers,
+                    headers={
+                        "User-Agent": "LinguaAI/1.0",
+                        "Accept": "application/json"
+                    },
                     timeout=15
                 )
 
-                if response.status_code == 429:
-                    last_error = "Rate limit reached"
-                    continue
+                response.raise_for_status()
 
-                if response.status_code >= 500:
+                # Make sure the server actually returned JSON.
+                content_type = response.headers.get(
+                    "Content-Type",
+                    ""
+                ).lower()
+
+                if "json" not in content_type:
                     last_error = (
-                        f"Server error: {response.status_code}"
+                        f"Non-JSON response from {api_url}"
                     )
                     continue
 
-                response.raise_for_status()
-
                 data = response.json()
 
-                translated_text = data.get("translatedText")
+                if "error" in data:
+                    last_error = data["error"]
+                    continue
+
+                translated_text = data.get("translation")
 
                 if translated_text:
                     return translated_text.strip()
@@ -76,13 +80,16 @@ class TranslationService:
                 last_error = str(error)
                 continue
 
-            except (ValueError, TypeError) as error:
+            except ValueError as error:
 
                 last_error = str(error)
                 continue
 
-        print("Translation services failed:", last_error)
+        print(
+            "Translation services failed:",
+            last_error
+        )
 
         raise RuntimeError(
-            "All translation services are currently unavailable."
+            "Translation service is currently unavailable."
         )
