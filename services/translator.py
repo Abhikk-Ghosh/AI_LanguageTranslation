@@ -3,11 +3,11 @@ import requests
 
 class TranslationService:
 
-    API_URL = "https://translate.googleapis.com/translate_a/single"
+    API_URL = "https://translate.argosopentech.com/translate"
 
     @staticmethod
     def translate(text, source, target):
-        """Translate text using Google Translate's web endpoint."""
+        """Translate text using the LibreTranslate API."""
 
         if not text or not text.strip():
             raise ValueError("Text cannot be empty.")
@@ -20,50 +20,33 @@ class TranslationService:
         if source == target:
             return text
 
-        params = {
-            "client": "gtx",
-            "sl": source,
-            "tl": target,
-            "dt": "t",
-            "q": text.strip()
+        payload = {
+            "q": text.strip(),
+            "source": source,
+            "target": target,
+            "format": "text"
         }
 
         headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
-            )
+            "Content-Type": "application/json"
         }
 
-        response = requests.get(
+        response = requests.post(
             TranslationService.API_URL,
-            params=params,
+            json=payload,
             headers=headers,
-            timeout=15
+            timeout=30
         )
 
         response.raise_for_status()
 
         data = response.json()
 
-        if not data or not data[0]:
-            raise RuntimeError(
-                "Translation service returned no translation."
-            )
-
-        translated_parts = []
-
-        for item in data[0]:
-            if item and item[0]:
-                translated_parts.append(item[0])
-
-        translated_text = "".join(translated_parts).strip()
+        translated_text = data.get("translatedText")
 
         if not translated_text:
             raise RuntimeError(
                 "Translation service returned no translation."
             )
 
-        return translated_text
+        return translated_text.strip()
